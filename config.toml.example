@@ -1,0 +1,3 @@
+[bot]
+token = "your-token-here"
+preferred_guilds = [123456789012345678]
