@@ -5,8 +5,8 @@ import logging
 
 
 class MyClient(discord.Client):
-    def __init__(self, *, intents: discord.Intents):
-        super().__init__(intents=intents)
+    def __init__(self):
+        super().__init__(intents=discord.Intents.default())
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
@@ -16,6 +16,5 @@ class MyClient(discord.Client):
             await self.tree.sync(guild=guild)
 
 
-intents = discord.Intents.default()
-client = MyClient(intents=intents)
+client = MyClient()
 logging.debug("inizialized Discord Client")

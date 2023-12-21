@@ -1,8 +1,9 @@
 from typing import List
-from sqlalchemy import ForeignKey
-from sqlalchemy import create_engine, String
+from sqlalchemy import ForeignKey, create_engine, String, DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
+from datetime import datetime
 
 
 class Base(DeclarativeBase):
@@ -13,21 +14,24 @@ class Base(DeclarativeBase):
 
 class Employee(Base):
     __tablename__ = "employee"
-    id: Mapped[int] = mapped_column(primary_key=True)  # Discord ID
-    server_id: Mapped[int] = mapped_column(ForeignKey("server.id"), primary_key=True)
-    server: Mapped["Server"] = relationship(back_populates="users")
-    timelog: Mapped[List["TimeLog"]] = relationship(back_populates="employee")
-    cautions: Mapped[List["Caution"]] = relationship(back_populates="employee")
-    issued_cautions: Mapped[List["Caution"]] = relationship(back_populates="issuer")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int]
+    guild_id: Mapped[int] = mapped_column(ForeignKey("guild.id"))
+    guild: Mapped["Guild"] = relationship(back_populates="users")
+    added: Mapped[datetime] = mapped_column(default=func.now())  # TODO: DateTime
+    timelog: Mapped[List["TimeLog"]] = relationship(back_populates="employee", cascade="all, delete-orphan")
+    warnings: Mapped[List["Warning"]] = relationship(back_populates="employee", cascade="all, delete-orphan")
     clock_start: Mapped[int] = mapped_column(nullable=True)  # if None, user isn't clocked in
+    job_id: Mapped[int] = mapped_column(ForeignKey("job.id"), nullable=True)
+    job: Mapped["Job"] = relationship(back_populates="employees")
     # Settings
     auto_clock_out: Mapped[bool] = mapped_column(default=True)  # only works if Server.auto_clock_out == 1
 
 
-class Server(Base):
-    __tablename__ = "server"
-    id: Mapped[int] = mapped_column(primary_key=True)  # Discord ID
-    users: Mapped[List["Employee"]] = relationship(back_populates="server")
+class Guild(Base):
+    __tablename__ = "guild"
+    id: Mapped[int] = mapped_column(primary_key=True)  # Discord Guild ID
+    users: Mapped[List["Employee"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     # Settings
     language: Mapped[str] = mapped_column(String(2), default="en")  # de/en. Not going to support that many languages
     manager_role: Mapped[int] = mapped_column(nullable=True)  # if None, only admins can use the bot
@@ -46,19 +50,24 @@ class TimeLog(Base):
     employee_id: Mapped[int] = mapped_column(ForeignKey("employee.id"))
     employee: Mapped["Employee"] = relationship(back_populates="timelog")
     start: Mapped[int]
-    end: Mapped[int]
+    end: Mapped[int] = mapped_column(nullable=True)
 
 
-class Caution(Base):
-    __tablename__ = "caution"
+class Warning(Base):
+    __tablename__ = "warning"
     id: Mapped[int] = mapped_column(primary_key=True)
     employee_id: Mapped[int] = mapped_column(ForeignKey("employee.id"))
-    employee: Mapped["Employee"] = relationship(back_populates="cautions")
-    issuer_id: Mapped[int] = mapped_column(ForeignKey("employee.id"))
-    issuer: Mapped["Employee"] = relationship(back_populates="issued_cautions")
+    employee: Mapped["Employee"] = relationship(back_populates="warnings")
+    issuer: Mapped[int]  # just a Discord ID (I actually don't need a link to an employee here)
     reason: Mapped[str] = mapped_column(String(512), default="")
     issued_at: Mapped[int]
     duration: Mapped[int]
+
+
+class Job(Base):
+    __tablename__ = "job"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    
 
 
 class DatabaseDriver:
